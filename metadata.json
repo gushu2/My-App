@@ -1,0 +1,7 @@
+{
+  "name": "NeuroCalm",
+  "description": "Real-time biometric stress analysis dashboard monitoring heart rate and SpO2 levels.",
+  "requestFramePermissions": [
+    "serial"
+  ]
+}
