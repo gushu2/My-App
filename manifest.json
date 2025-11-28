@@ -1,0 +1,20 @@
+{
+  "short_name": "NeuroCalm",
+  "name": "NeuroCalm Monitor",
+  "icons": [
+    {
+      "src": "https://img.icons8.com/color/192/heart-monitor.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "https://img.icons8.com/color/512/heart-monitor.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#ffffff",
+  "background_color": "#f0f9ff"
+}
