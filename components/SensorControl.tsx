@@ -35,8 +35,13 @@ const SensorControl: React.FC<SensorControlProps> = ({
   const [showGuide, setShowGuide] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const copyCode = () => {
-    const code = `#include <WiFi.h>
+  const copyCode = (code: string) => {
+    navigator.clipboard.writeText(code);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const wifiCode = `#include <WiFi.h>
 #include <WebSocketsServer.h> // Install "WebSockets" by Markus Sattler
 #include "MAX30100_PulseOximeter.h"
 
@@ -85,10 +90,47 @@ void loop() {
     tsLastReport = millis();
   }
 }`;
-    navigator.clipboard.writeText(code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
+
+  const usbCode = `#include <Wire.h>
+#include "MAX30100_PulseOximeter.h"
+
+#define LED_GREEN 18
+#define LED_YELLOW 19
+#define LED_RED 23
+
+PulseOximeter pox;
+uint32_t tsLastReport = 0;
+
+void setup() {
+  // CRITICAL: Baud rate must be 115200
+  Serial.begin(115200);
+
+  pinMode(LED_GREEN, OUTPUT);
+  pinMode(LED_YELLOW, OUTPUT);
+  pinMode(LED_RED, OUTPUT);
+
+  if (!pox.begin()) {
+    Serial.println("FAILED");
+    for(;;);
+  }
+}
+
+void loop() {
+  pox.update();
+  if (millis() - tsLastReport > 1000) {
+    float hr = pox.getHeartRate();
+    
+    // OUTPUT REQUIRED FOR APP:
+    Serial.print("Heart rate: ");
+    Serial.println(hr);
+
+    digitalWrite(LED_GREEN, hr < 80 ? HIGH : LOW);
+    digitalWrite(LED_YELLOW, (hr >= 80 && hr <= 120) ? HIGH : LOW);
+    digitalWrite(LED_RED, hr > 120 ? HIGH : LOW);
+
+    tsLastReport = millis();
+  }
+}`;
 
   return (
     <div className="bg-white rounded-xl shadow-lg border border-slate-100 p-6 transition-all duration-300">
@@ -184,8 +226,25 @@ void loop() {
                 /* USB GUIDE */
                 <>
                   <div className="border-b border-slate-100 pb-2 mb-2">
+                     <h4 className="font-bold text-slate-800 flex items-center gap-1.5 mb-2">
+                      <Cpu size={14} className="text-indigo-500" /> 1. Upload Code
+                    </h4>
+                    <p className="mb-2">Flash this code to your ESP32. It formats the data for this app.</p>
+                    <div className="relative group mb-3">
+                      <pre className="bg-slate-900 text-slate-50 p-3 rounded-md overflow-x-auto font-mono text-[10px] leading-tight max-h-[150px]">
+                        {usbCode}
+                      </pre>
+                      <button 
+                        onClick={() => copyCode(usbCode)}
+                        className="absolute top-2 right-2 p-1.5 bg-white/10 hover:bg-white/20 text-white rounded transition-colors"
+                        title="Copy Code"
+                      >
+                        {copied ? <Check size={12} /> : <Copy size={12} />}
+                      </button>
+                    </div>
+
                     <h4 className="font-bold text-slate-800 flex items-center gap-1.5 mb-2">
-                      <Download size={14} className="text-indigo-500" /> 1. Install CP210x Driver
+                      <Download size={14} className="text-indigo-500" /> 2. Install Drivers
                     </h4>
                     <div className="bg-amber-50 border border-amber-100 p-2 rounded text-amber-800 mb-2">
                       <p className="font-semibold flex items-center gap-1"><AlertTriangle size={12}/> Critical Step:</p>
@@ -197,19 +256,36 @@ void loop() {
                       rel="noreferrer" 
                       className="text-indigo-600 underline hover:text-indigo-800 font-medium"
                     >
-                      Download Driver Here
+                      Download CP210x Driver
                     </a>
                   </div>
 
                   <div>
                     <h4 className="font-bold text-slate-800 flex items-center gap-1.5 mb-1">
-                      <Cable size={14} className="text-indigo-500" /> 2. Hardware Wiring
+                      <Cable size={14} className="text-indigo-500" /> 3. Hardware Wiring
                     </h4>
                     <ul className="list-disc pl-5 space-y-0.5">
                       <li><strong>MAX30100:</strong> SDA &rarr; GPIO 21, SCL &rarr; GPIO 22</li>
                       <li><strong>Green LED:</strong> GPIO 18</li>
                       <li><strong>Yellow LED:</strong> GPIO 19</li>
                       <li><strong>Red LED:</strong> GPIO 23</li>
+                    </ul>
+                  </div>
+
+                  <div className="mt-3 pt-3 border-t border-slate-100">
+                    <h4 className="font-bold text-amber-600 flex items-center gap-1.5 mb-1">
+                      <AlertTriangle size={14} /> Troubleshooting: Device Not Found?
+                    </h4>
+                    <ul className="list-disc pl-5 space-y-1.5 text-slate-700">
+                      <li>
+                        <strong>Check your Cable:</strong> Ensure you are using a <u>Data Cable</u>. Many cheap cables are "Charge Only" and will not work. Try swapping the USB cable.
+                      </li>
+                      <li>
+                        <strong>Restart Browser:</strong> If you just installed the driver, restart Chrome/Edge completely.
+                      </li>
+                      <li>
+                        <strong>Check Device Manager:</strong> On Windows, check "Device Manager" &rarr; "Ports (COM & LPT)". If you don't see "Silicon Labs" or "CH340", your computer does not see the ESP32.
+                      </li>
                     </ul>
                   </div>
                 </>
@@ -224,38 +300,10 @@ void loop() {
                     
                     <div className="relative group">
                       <pre className="bg-slate-900 text-slate-50 p-3 rounded-md overflow-x-auto font-mono text-[10px] leading-tight max-h-[150px]">
-{`#include <WiFi.h>
-#include <WebSocketsServer.h>
-#include "MAX30100_PulseOximeter.h"
-
-// REPLACE THESE
-const char* ssid = "YOUR_WIFI_NAME";
-const char* password = "YOUR_WIFI_PWD";
-
-PulseOximeter pox;
-WebSocketsServer webSocket = WebSocketsServer(81);
-uint32_t tsLastReport = 0;
-
-void setup() {
-  Serial.begin(115200);
-  WiFi.begin(ssid, password);
-  while(WiFi.status() != WL_CONNECTED) { delay(500); }
-  Serial.println(WiFi.localIP()); // COPY THIS IP
-  webSocket.begin();
-  if(!pox.begin()) Serial.println("FAIL");
-}
-
-void loop() {
-  webSocket.loop();
-  pox.update();
-  if (millis() - tsLastReport > 1000) {
-    webSocket.broadcastTXT("Heart rate: " + String(pox.getHeartRate()));
-    tsLastReport = millis();
-  }
-}`}
+                        {wifiCode}
                       </pre>
                       <button 
-                        onClick={copyCode}
+                        onClick={() => copyCode(wifiCode)}
                         className="absolute top-2 right-2 p-1.5 bg-white/10 hover:bg-white/20 text-white rounded transition-colors"
                         title="Copy Code"
                       >
